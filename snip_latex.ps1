@@ -1,0 +1,1 @@
+python C:/Users/ykeller/Desktop/github_repos/aisnip/snip.py "Can you give me the latex code that generates the following equations? Please only respond with the latex code and nothing else. Do not include the code initializing the document environment."

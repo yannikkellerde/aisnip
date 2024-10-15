@@ -16,7 +16,7 @@ class Application:
         self.start_y = None
         self.current_x = None
         self.current_y = None
-        self.save_folder = "~/Pictures/snips"
+        self.save_folder = "C:/Users/ykeller/Pictures/snips"
         os.makedirs(self.save_folder, exist_ok=True)
         self.model = AzureModelWrapper()
 
@@ -34,24 +34,27 @@ class Application:
 
     def take_bounded_screenshot(self, x1, y1, x2, y2):
         image = pyautogui.screenshot(region=(int(x1), int(y1), int(x2), int(y2)))
+        self.exit_screenshot_mode()
         file_name = datetime.datetime.now().strftime("%f")
         img_path = os.path.join(self.save_folder, f"{file_name}.png")
         image.save(img_path)
         data_url = local_image_to_data_url(
             os.path.join(self.save_folder, f"{file_name}.png")
         )
-        messages = {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": self.prompt},
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": data_url,
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": self.prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": data_url,
+                        },
                     },
-                },
-            ],
-        }
+                ],
+            }
+        ]
         reply = self.model.complete(messages)
         print(reply)
         pyperclip.copy(reply)
@@ -116,7 +119,6 @@ class Application:
     def exit_screenshot_mode(self):
         self.snip_surface.destroy()
         self.master_screen.withdraw()
-        root.deiconify()
 
     def on_button_press(self, event):
         # save mouse drag start position
