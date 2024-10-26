@@ -40,9 +40,7 @@ class TextInputCapture(QWidget):
         self.callback = callback
 
         # Set central widget
-        container = QWidget()
-        container.setLayout(layout)
-        self.setCentralWidget(container)
+        self.setLayout(layout)
 
     def keyPressEvent(self, event: QKeyEvent | None) -> None:
         if event.key() == Qt.Key.Key_Return:

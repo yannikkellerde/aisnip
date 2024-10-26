@@ -41,7 +41,7 @@ class SnippingTool(QMainWindow):
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
         )
-        self.setWindowOpacity(0.1)
+        self.setWindowOpacity(0.2)
 
         screen_geometry = QApplication.primaryScreen().geometry()
         self.setGeometry(screen_geometry)
@@ -218,13 +218,14 @@ if model is None:
     text_cap = TextInputCapture(
         lambda x: window.set_model(OpenAIModelWrapper(api_key=store_api_key(x)))
     )
+    text_cap.show()
 
 
 tray_icon = QSystemTrayIcon(QIcon("clippy.png"))
 tray_icon.setToolTip("AI Snip tool")
 
 tray_menu = QMenu()
-show_action = QAction("AI Snip")
+show_action = QAction("AI Snip (CTRL + SHIFT + A)")
 response_action = QAction("Show AI response")
 text_write_action = QAction("Show text input")
 quit_action = QAction("Quit")
@@ -240,12 +241,9 @@ tray_icon.setContextMenu(tray_menu)
 
 tray_icon.show()
 
-keyboard.add_hotkey("ctrl+shift+a", show_action.trigger)
-# window.showFullScreen()
+keyboard.add_hotkey("CTRL + SHIFT + A", show_action.trigger)
 
-# Adding a keyboard shortcut for the "AI Snip" action
-# shortcut = QShortcut(QKeySequence("Ctrl+Shift+A"), window)  # or any preferred key combination
-# shortcut.activated.connect(show_action.trigger)
-
+window.showFullScreen()
+window.close()
 
 sys.exit(app.exec())
