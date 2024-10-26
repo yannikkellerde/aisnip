@@ -3,6 +3,7 @@ import sys
 from PyQt6.QtCore import Qt, QTimer, QRectF, QPointF, QRect
 from PyQt6.QtGui import QPainter, QColor, QFont, QFontMetrics, QPainterPath, QPixmap
 from functools import lru_cache
+from util import resource_path
 
 
 class SpeechBubbleWidget(QWidget):
@@ -14,7 +15,7 @@ class SpeechBubbleWidget(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
-        image_path = "full_clippy.png"
+        image_path = resource_path("full_clippy.png")
 
         # Create a QLabel widget to display the image
         self.label = QLabel(self)

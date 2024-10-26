@@ -26,6 +26,7 @@ from util import (
     AzureModelWrapper,
     OpenAIModelWrapper,
     ModelWrapper,
+    resource_path
 )
 from speech_bubble import SpeechBubbleWidget
 from write_text import TextInputWidget
@@ -221,7 +222,7 @@ if model is None:
     text_cap.show()
 
 
-tray_icon = QSystemTrayIcon(QIcon("clippy.png"))
+tray_icon = QSystemTrayIcon(QIcon(resource_path("clippy.png")))
 tray_icon.setToolTip("AI Snip tool")
 
 tray_menu = QMenu()

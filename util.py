@@ -1,5 +1,6 @@
 import base64
 import json
+import sys
 import os
 from mimetypes import guess_type
 from typing import Optional, Type
@@ -28,6 +29,15 @@ def local_image_to_data_url(image_path):
 
 def human_readable_parse(messages: list[dict[str, str]]):
     return "\n".join([f'{msg["role"]}:\n{msg["content"]}' for msg in messages])
+
+
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 
 class ModelWrapper:
