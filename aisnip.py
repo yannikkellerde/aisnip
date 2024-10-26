@@ -65,6 +65,7 @@ class SnippingTool(QMainWindow):
         self.begin = self.end = None
         self.clippy_enabled = True
         self.clipboard_enabled = False
+        text_widget.current_text = "Please explain the contents of this image concisely."
         self.update()
 
     def paintEvent(self, event):
@@ -220,7 +221,6 @@ if model is None:
         lambda x: window.set_model(OpenAIModelWrapper(api_key=store_api_key(x)))
     )
     text_cap.show()
-
 
 tray_icon = QSystemTrayIcon(QIcon(resource_path("clippy.png")))
 tray_icon.setToolTip("AI Snip tool")

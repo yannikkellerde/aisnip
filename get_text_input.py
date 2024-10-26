@@ -17,7 +17,7 @@ class TextInputCapture(QWidget):
         super().__init__()
 
         # Set up the main window
-        self.setWindowTitle("PyQt6 Text Input Example")
+        self.setWindowTitle("Enter API Key")
         self.setGeometry(100, 100, 300, 100)
 
         # Set up layout

@@ -30,7 +30,7 @@ class TextInputWidget(QWidget):
 
         # Set the layout to the main widget
         self.setLayout(self.layout)
-        self.setWindowTitle("Text Input Example")
+        self.setWindowTitle("Write your prompt")
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
         )
