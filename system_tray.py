@@ -1,21 +1,22 @@
 import sys
 import os
-from PyQt5.QtWidgets import QApplication, QMainWindow, QSystemTrayIcon, QMenu, QAction
-from PyQt5.QtGui import QIcon
 from datetime import datetime
-from PyQt5.QtCore import Qt, QRect
-from PyQt5.QtGui import QPainter, QPen, QPixmap, QScreen, QColor, QKeySequence
-from PyQt5.QtWidgets import QApplication, QWidget, QFileDialog, QMainWindow, QShortcut
-from util import local_image_to_data_url, AzureModelWrapper
+from PyQt6.QtCore import Qt, QRect
+from PyQt6.QtGui import QPainter, QPen, QPixmap, QScreen, QColor, QKeySequence, QIcon, QAction, QShortcut
+from PyQt6.QtWidgets import QApplication, QWidget, QFileDialog, QMainWindow, QMenu, QSystemTrayIcon
+from util import local_image_to_data_url, AzureModelWrapper, OpenAIModelWrapper, ModelWrapper
+from speech_bubble import SpeechBubbleWidget
+from write_text import TextInputWidget
+from get_text_input import TextInputCapture
 import pyperclip
 import keyboard
+import time
 
 
 class SnippingTool(QMainWindow):
-    def __init__(self):
+    def __init__(self, model:ModelWrapper):
         super().__init__()
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-        #self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setWindowOpacity(0.1)
         
         screen_geometry = QApplication.primaryScreen().geometry()
@@ -26,18 +27,24 @@ class SnippingTool(QMainWindow):
         
         self.begin = None
         self.end = None
+        self.clippy_enabled = True
+        self.clipboard_enabled = False
         
-        self.prompt = "Please explain the contents of this image."
+        self.model = model
         
-        self.model = AzureModelWrapper()
+    def set_model(self, model:ModelWrapper):
+        self.model = model
         
     def showFullScreen(self) -> None:
         super().showFullScreen()
+        self.begin = self.end = None
+        self.clippy_enabled = True
+        self.clipboard_enabled = False
         self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         # Draw the overlay with opacity
         overlay_color = QColor(0, 0, 0, 128)  # Semi-transparent black
@@ -46,12 +53,12 @@ class SnippingTool(QMainWindow):
         # If we have a selection, cut it out to reveal the screen content
         if self.begin and self.end:
             rect = QRect(self.begin, self.end)
-            painter.setCompositionMode(QPainter.CompositionMode_Clear)
-            painter.fillRect(rect, Qt.transparent)
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
+            painter.fillRect(rect, Qt.GlobalColor.transparent)
 
             # Draw a red border around the selection
-            painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
-            painter.setPen(QPen(Qt.red, 2))
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+            painter.setPen(QPen(Qt.GlobalColor.red, 2))
             painter.drawRect(rect)
             
     def get_ai_complete(self, img_path):
@@ -62,7 +69,7 @@ class SnippingTool(QMainWindow):
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": self.prompt},
+                    {"type": "text", "text": text_widget.current_text},
                     {
                         "type": "image_url",
                         "image_url": {
@@ -72,9 +79,16 @@ class SnippingTool(QMainWindow):
                 ],
             }
         ]
-        reply = self.model.complete(messages)
-        print(reply)
-        pyperclip.copy(reply)
+        if self.model is None:
+            reply = """Got no API key. Either set the OPENAI_API_KEY environment variable
+            or restart AI Snip and enter your key."""
+        else:
+            reply = self.model.complete(messages)
+        
+        if self.clipboard_enabled:
+            pyperclip.copy(reply)
+        return reply
+
 
     def mousePressEvent(self, event):
         self.begin = event.pos()
@@ -89,14 +103,53 @@ class SnippingTool(QMainWindow):
         self.end = event.pos()
         file_path = self.capture()
         self.begin = self.end = None
-        self.close()
-        self.get_ai_complete(file_path)
+        if file_path is not None:
+            self.close()
+            if text_widget.isVisible():
+                text_widget.close()
+            reply = self.get_ai_complete(file_path)
+            speech_bubble.reset(reply)
+            if self.clippy_enabled:
+                if not speech_bubble.isVisible():
+                    speech_bubble.show()
+    
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape or event.key() == Qt.Key.Key_Q:
+            self.close()
+            text_widget.close()
+            
+        if event.key() == Qt.Key.Key_C:
+            self.clipboard_enabled = not self.clipboard_enabled
+            
+        if event.key() == Qt.Key.Key_D:
+            self.clippy_enabled = not self.clippy_enabled
+
+        if event.key() == Qt.Key.Key_E:
+            text_widget.change_text("Translate this text to English. Only respond with the translated text.")
+            self.clipboard_enabled = True
+            if not text_widget.isVisible():
+                text_widget.show()
+        
+        if event.key() == Qt.Key.Key_T:
+            text_widget.change_text("")
+            if not text_widget.isVisible():
+                text_widget.show()
+        
+        if event.key() == Qt.Key.Key_L:
+            self.clippy_enabled = False
+            self.clipboard_enabled = True
+            text_widget.change_text("Give me the latex code that generates this image. Only respond with the code and nothing else.")
+            if not text_widget.isVisible():
+                text_widget.show()
 
     def capture(self):
         x1 = min(self.begin.x(), self.end.x())
         y1 = min(self.begin.y(), self.end.y())
         x2 = max(self.begin.x(), self.end.x())
         y2 = max(self.begin.y(), self.end.y())
+
+        if x2 - x1 + y2 - y1 < 6:
+            return None
         rect = QRect(x1, y1, x2 - x1, y2 - y1)
         
         screen = QApplication.primaryScreen()
@@ -106,22 +159,49 @@ class SnippingTool(QMainWindow):
         file_path = os.path.join(self.save_folder, f"{now}.png")
         screenshot.save(file_path)
         return file_path
+    
+def store_api_key(api_key):
+    with open("openai_api_key.txt", "w") as f:
+        f.write(api_key)
+    return api_key
 
 app = QApplication(sys.argv)
 app.setQuitOnLastWindowClosed(False)
 
-window = SnippingTool()
+if os.environ.get("OPENAI_API_KEY") is not None:
+    model = OpenAIModelWrapper()
+elif os.environ.get("AZURE_OPENAI_API_KEY") is not None:
+    model = AzureModelWrapper()
+elif os.path.isfile("openai_api_key.txt"):
+    with open("openai_api_key.txt") as f:
+        api_key = f.read().strip()
+    model = OpenAIModelWrapper(api_key=api_key)
+else:
+    model = None
+
+window = SnippingTool(model)
+speech_bubble = SpeechBubbleWidget()
+text_widget = TextInputWidget()
+
+if model is None:
+    text_cap = TextInputCapture(lambda x: window.set_model(OpenAIModelWrapper(api_key=store_api_key(x))))
+
 
 tray_icon = QSystemTrayIcon(QIcon("clippy.png"))
 tray_icon.setToolTip("AI Snip tool")
 
 tray_menu = QMenu()
 show_action = QAction("AI Snip")
+response_action = QAction("Show AI response")
+text_write_action = QAction("Show text input")
 quit_action = QAction("Quit")
 show_action.triggered.connect(window.showFullScreen)
+response_action.triggered.connect(speech_bubble.show)
+text_write_action.triggered.connect(text_widget.show)
 quit_action.triggered.connect(app.quit)
 
 tray_menu.addAction(show_action)
+tray_menu.addAction(response_action)
 tray_menu.addAction(quit_action)
 tray_icon.setContextMenu(tray_menu)
 
@@ -134,4 +214,5 @@ keyboard.add_hotkey('ctrl+shift+a', show_action.trigger)
 #shortcut = QShortcut(QKeySequence("Ctrl+Shift+A"), window)  # or any preferred key combination
 #shortcut.activated.connect(show_action.trigger)
 
-sys.exit(app.exec_())
+
+sys.exit(app.exec())

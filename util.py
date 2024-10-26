@@ -4,7 +4,7 @@ import os
 from mimetypes import guess_type
 from typing import Optional, Type
 
-from openai import AzureOpenAI
+from openai import AzureOpenAI, OpenAI
 from openai._base_client import BaseClient
 from openai.types.chat import ParsedChatCompletionMessage
 from pydantic import BaseModel
@@ -72,22 +72,6 @@ class ModelWrapper:
 
         return response.choices[0].message
 
-    def compute_cost():
-        raise NotImplementedError()
-class AzureModelWrapper(ModelWrapper):
-    def __init__(
-        self,
-        model_name: str = "gpt-4o",
-        log_file=None,
-        api_version="2024-08-01-preview",
-    ):
-        self.client = AzureOpenAI(
-            api_key=os.environ.get("AZURE_OPENAI_API_KEY"),
-            api_version=api_version,
-            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-        )
-        super().__init__(self.client, model_name, log_file)
-
     def compute_cost(
         self,
         input_token_cost: Optional[float] = None,
@@ -120,3 +104,29 @@ class AzureModelWrapper(ModelWrapper):
             + self.stats["completion_tokens"] * output_token_cost
         )
         return total_cost
+    
+class OpenAIModelWrapper(ModelWrapper):
+    def __init__(
+        self,
+        model_name: str = "gpt-4o",
+        log_file=None,
+        api_key=os.environ.get("OPENAI_API_KEY"),
+    ):
+        self.client = OpenAI(
+            api_key=api_key,
+        )
+        super().__init__(self.client, model_name, log_file)
+
+class AzureModelWrapper(ModelWrapper):
+    def __init__(
+        self,
+        model_name: str = "gpt-4o",
+        log_file=None,
+        api_version="2024-08-01-preview",
+    ):
+        self.client = AzureOpenAI(
+            api_key=os.environ.get("AZURE_OPENAI_API_KEY"),
+            api_version=api_version,
+            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        )
+        super().__init__(self.client, model_name, log_file)

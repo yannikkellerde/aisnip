@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QApplication, QWidget, QLabel
 import sys
 from PyQt6.QtCore import Qt, QTimer, QRectF, QPointF, QRect
 from PyQt6.QtGui import QPainter, QColor, QFont, QFontMetrics, QPainterPath, QPixmap
+from functools import lru_cache
 
 class SpeechBubbleWidget(QWidget):
     def __init__(self):
@@ -19,7 +20,7 @@ class SpeechBubbleWidget(QWidget):
         # Load the image and set it in the QLabel
         self.pixmap = QPixmap(image_path)
         
-        scale_factor = 200/self.pixmap.width()
+        scale_factor = 250/self.pixmap.width()
 
         self.img_height = int(self.pixmap.height()*scale_factor)
         self.img_width = int(self.pixmap.width()*scale_factor)
@@ -29,6 +30,7 @@ class SpeechBubbleWidget(QWidget):
         self.full_text = text
         self.displayed_text = ""
         self.char_index = 0
+        self.opacity = 0.0
         
         bubble_width = 300 + max(0,min(300, (len(self.full_text) - 100)//2))
         self.resize(bubble_width, 150)
@@ -41,32 +43,21 @@ class SpeechBubbleWidget(QWidget):
 
     def update_text(self):
         # Add one more character each time the timer fires
-        if self.char_index < len(self.full_text):
-            self.char_index += 1
-            self.displayed_text = self.full_text[:self.char_index]
-            self.update()  # Trigger a repaint
-        else:
-            self.timer.stop()  # Stop timer when all characters are displayed
+        if self.opacity > 0.25:
+            if self.char_index < len(self.full_text):
+                self.char_index += 1
+                self.displayed_text = self.full_text[:self.char_index]
+                self.update()  # Trigger a repaint
+            elif self.opacity == 1.0:
+                self.timer.stop()  # Stop timer when all characters are displayed
+        if self.opacity < 1.0:
+            self.opacity = min(1.0,self.opacity + 0.01)
+            self.setWindowOpacity(self.opacity)
 
-    def paintEvent(self, event):
-        # Set the window location to the bottom right corner
-        screen_geometry = QApplication.primaryScreen().geometry()
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        # Define bubble color and border
-        bubble_color = QColor(252, 250, 207)
-        border_color = QColor(0, 0, 0)
-
-        # Set bubble rectangle size and position, convert to QRectF
-
-        font = QFont("Tahoma", 12)
-        painter.setFont(font)
-        metrics = QFontMetrics(font)
-        max_width = self.rect().width() - 60  # Padding for text within bubble
-
+    @staticmethod 
+    def compute_height(text:str, metrics: QFontMetrics, max_width: int):
         # Split displayed_text into lines to fit within max_width
-        words = [x for x in self.displayed_text.replace("\n", " \n ").split(" ") if x]
+        words = [x for x in text.replace("\n", " \n ").split(" ") if x]
         lines = []
         current_line = ""
 
@@ -86,14 +77,40 @@ class SpeechBubbleWidget(QWidget):
             lines.append(current_line)
             
         line_req = metrics.height() * len(lines)
-        self.resize(self.rect().width(), line_req + 90 + self.img_height)
+        return lines, line_req
 
-        x = screen_geometry.width() - self.width() - 20
-        y = screen_geometry.height() - self.height() - 20
-        self.move(x, y)
+
+    def paintEvent(self, event):
+        # Set the window location to the bottom right corner
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # Define bubble color and border
+        bubble_color = QColor(252, 250, 207)
+        border_color = QColor(0, 0, 0)
+
+        # Set bubble rectangle size and position, convert to QRectF
+
+        font = QFont("Tahoma", 12)
+        painter.setFont(font)
+        metrics = QFontMetrics(font)
+        max_width = self.rect().width() - 60  # Padding for text within bubble
+
+        lines, line_req = self.compute_height(self.displayed_text, metrics, max_width)
+        _, max_req = self.compute_height(self.full_text, metrics, max_width)
+        diff = max_req - line_req
+        
+        total_height = max_req + 60 + self.img_height
+        if self.rect().height() != total_height:
+            self.resize(self.rect().width(), total_height)
+            screen_geometry = QApplication.primaryScreen().geometry()
+            x = screen_geometry.width() - self.width() - 20
+            y = screen_geometry.height() - self.height() - 20
+            self.move(x, y)
+        
         painter.drawPixmap(QRect(self.rect().right()-self.img_width,self.rect().bottom()-self.img_height, self.img_width, self.img_height), self.pixmap)
 
-        bubble_rect = QRectF(self.rect().adjusted(20, 20, -20, -50 - self.img_height))
+        bubble_rect = QRectF(self.rect().adjusted(20, 20+diff, -20, -20 - self.img_height))
 
         # Create a path for the bubble with the triangle pointer
         dummy_path = QPainterPath()
