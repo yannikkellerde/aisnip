@@ -104,7 +104,8 @@ class ModelWrapper:
             + self.stats["completion_tokens"] * output_token_cost
         )
         return total_cost
-    
+
+
 class OpenAIModelWrapper(ModelWrapper):
     def __init__(
         self,
@@ -116,6 +117,7 @@ class OpenAIModelWrapper(ModelWrapper):
             api_key=api_key,
         )
         super().__init__(self.client, model_name, log_file)
+
 
 class AzureModelWrapper(ModelWrapper):
     def __init__(
